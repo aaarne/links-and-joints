@@ -36,11 +36,8 @@ def generate_bounds_callback(bounds):
 
 
 class Pendulum(PlanarRobot):
-    def __init__(self, lengths, params, mass_fun, cc_fun, gravity_fun):
+    def __init__(self, lengths, params):
         super().__init__(link_lengths=lengths)
-        self._mass_matrix = mass_fun
-        self._coriolis_centrifugal = cc_fun
-        self._gravity = gravity_fun
         self._params = params
         self._str = f"Pendulum with {super().number_of_joints} DoF. Parameters: {params}"
         self._torque_sources = []
@@ -54,9 +51,18 @@ class Pendulum(PlanarRobot):
         else:
             return np.zeros(self.dof)
 
+    def mass_matrix(self, q):
+        raise NotImplementedError
+
+    def coriolis_centrifugal_forces(self, q, dq):
+        raise NotImplementedError
+
+    def gravity(self, q):
+        raise NotImplementedError
+
     @property
     def M(self):
-        return self._mass_matrix
+        return self.mass_matrix
 
     @property
     def params(self):
@@ -64,17 +70,17 @@ class Pendulum(PlanarRobot):
 
     @property
     def C(self):
-        return self._coriolis_centrifugal
+        return self.coriolis_centrifugal_forces
 
     @property
     def G(self):
-        return self._gravity
+        return self.gravity
 
     def get_param(self, key):
         return self._params[key]
 
     def tau(self, q, dq, ddq):
-        return self.M(q) @ ddq + self.C(q, dq) @ dq + self.G(q) - self._custom_torque(0.0, q, dq)
+        return self.M(q) @ ddq + self.C(q, dq) + self.G(q) - self._custom_torque(0.0, q, dq)
 
     def acc(self, q, dq):
         return np.linalg.inv(self.M(q)) @ (-self.C(q, dq) @ dq - self.G(q) + self._custom_torque(0.0, q, dq))
@@ -87,9 +93,9 @@ class Pendulum(PlanarRobot):
             G = self.G(q)
             tau_int = self._custom_torque(t, q, dq)
             if controller is None:
-                ddq = np.linalg.inv(M) @ (-C @ dq - G + tau_int)
+                ddq = np.linalg.inv(M) @ (-C - G + tau_int)
             else:
-                ddq = np.linalg.inv(M) @ (tau_int + controller(t, q, dq) - (C @ dq) - G)
+                ddq = np.linalg.inv(M) @ (tau_int + controller(t, q, dq) - C - G)
 
             return speed_factor * np.ravel(np.column_stack((dq, ddq)))
 

@@ -7,6 +7,14 @@ from .planar_jacobians import jacobians
 from .mass_3dof import *
 
 
+def hom2xyphi(hom):
+    fkin = np.empty((hom.shape[0], 3))
+    fkin[:, 0] = hom[:, 0, 2]
+    fkin[:, 1] = hom[:, 1, 2]
+    fkin[:, 2] = np.angle(np.exp(1j * (np.arctan2(hom[:, 1, 0], hom[:, 0, 0]))))
+    return fkin
+
+
 class PlanarRobot(object):
     def __init__(self, link_lengths=(1, 1, 1)):
         self._link_lengths = list(link_lengths)
@@ -45,11 +53,19 @@ class PlanarRobot(object):
         return hom2xyphi(flange)
 
     def forward_kinematics_for_each_link(self, q):
-        a = np.zeros((q.shape[0], self.dof, 3))
-        for i in range(self.dof):
-            a[:, i, :] = self.forward_kinematics(q, up_to=i+1)
+        if q.ndim == 1:
+            a = np.zeros((self.dof, 3))
+            for i in range(self.dof):
+                a[i, :] = self.forward_kinematics(q, up_to=i+1)
+            return a
+        elif q.ndim == 2:
+            a = np.zeros((q.shape[0], self.dof, 3))
+            for i in range(self.dof):
+                a[:, i, :] = self.forward_kinematics(q, up_to=i+1)
 
-        return a
+            return a
+        else:
+            raise ValueError
 
 
     def bad_invkin(self, cart, q0=None, K=1.0, tol=1e-3, max_steps=100):

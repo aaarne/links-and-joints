@@ -2,7 +2,7 @@ from sympy import *
 from sympy.physics.mechanics import LagrangesMethod
 from functools import reduce
 from itertools import islice
-from sympy.printing.pycode import NumPyPrinter
+from sympy.printing.numpy import NumPyPrinter
 
 do_simplify = True
 
@@ -69,7 +69,7 @@ def generate_planar_model(spec):
         return 0.5 * m[i] * vel_sqr
 
     def compute_potential_energy(i):
-        return -m[i] * g * coms[i][1, 2] + .5*k[i]*(q[i]-qr[i])**2
+        return m[i] * g * coms[i][1, 2] + .5*k[i]*(q[i]-qr[i])**2
 
     T = sum(compute_kinetic_energy(i) for i in range(n))
     V = sum(compute_potential_energy(i) for i in range(n))
@@ -117,59 +117,58 @@ def generate_planar_model(spec):
                     expr, 0), 0))
 
     print("Generating code...")
-    return f"""
-import numpy
-from .. import PlanarDynamicalSystem
+    return f"""import numpy
+from ..pds import PlanarDynamicalSystem
 
 
 class {spec.upper()}(PlanarDynamicalSystem):
     def __init__(self, l, m, g, k, qr):
-        self._l = l
-        self._m = m
-        self._g = g
-        self._k = k
-        self._q_rest = qr
-        self._p = l, m, g, k, qr
-        super().__init__({n})
+        super().__init__({n}, l, m, g, k, qr)
         
     def mass_matrix(self, q):
-        l, m, g, k, qr = self._p
+        l, m, g, k, qr = self.params
         return {expr_to_code(m, 'Mass Matrix')}
 
     def gravity(self, q):
-        l, m, g, k, qr = self._p
-        return {expr_to_code(g, 'Gravity Vector')}
-
-    def cc_forces(self, q, dq):
-        l, m, g, k, qr = self._p
-        return {expr_to_code(cc, 'Coriolis & Centrifugal Forces')}
+        l, m, g, k, qr = self.params
+        expr = {expr_to_code(g, 'Gravity Vector')}
+        return expr.flatten()
+        
+    def coriolis_centrifugal_forces(self, q, dq):
+        l, m, g, k, qr = self.params
+        expr = {expr_to_code(cc, 'Coriolis & Centrifugal Forces')}
+        return expr.flatten()
         
     def potential(self, q):
-        l, m, g, k, qr = self._p
+        l, m, g, k, qr = self.params
         return {expr_to_code(V, 'Potential')}
         
     def kinetic_energy(self, q, dq):
-        l, m, g, k, qr = self._p
+        l, m, g, k, qr = self.params
         return {expr_to_code(T, 'Kinetic Energy')}
         
     def energy(self, q, dq):
-        l, m, g, k, qr = self._p
+        l, m, g, k, qr = self.params
         return {expr_to_code(V + T, 'Total Energy')}
         
-    def link_positions(self, q):
-        l, m, g, k, qr = self._p
+    def _link_positions(self, q):
+        l, m, g, k, qr = self.params
         return {expr_to_code(Matrix(coms), 'CoM Positions')}
         
-    def fkin(self, q):
-        l, m, g, k, qr = self._p
+    def _fkin(self, q):
+        l, m, g, k, qr = self.params
         return {expr_to_code(fkin, 'Forward Kinematic')}
+        
+    def endeffector_pose(self, q):
+        l, m, g, k, qr = self.params
+        return {expr_to_code(tcp, 'TCP Pose')}
 
     def jacobian(self, q):
-        l, m, g, k, qr = self._p
+        l, m, g, k, qr = self.params
         return {expr_to_code(J, 'Jacobian')}
         
     def jacobi_metric(self, q, E):
-        l, m, g, k, qr = self._p
+        l, m, g, k, qr = self.params
         return {expr_to_code(jacobi_metric, 'Jacobi Metric')}
 """
 
@@ -177,6 +176,6 @@ class {spec.upper()}(PlanarDynamicalSystem):
 if __name__ == "__main__":
     import sys
     spec = sys.argv[1]
-    with open(f"generated/{spec}.py", "w") as f:
+    with open(f"planar_dynamical_system/generated/{spec}.py", "w") as f:
         f.write(generate_planar_model(spec))
 

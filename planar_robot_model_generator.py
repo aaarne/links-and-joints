@@ -38,7 +38,7 @@ def create_code(dim, code_gen=True):
 
 
 def _main(dim, mode='python'):
-    fkin, J, _ = create_code(dim, code_gen=mode=='python')
+    fkin, J, _ = create_code(dim, code_gen=mode == 'python')
     print("Forward Kinematics:")
     if mode == 'python':
         _print_code(fkin)

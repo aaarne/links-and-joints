@@ -5,7 +5,7 @@ from allerlei import Timer
 
 _animations = list()
 
-def plot_pendulum_trajectory(pendulum, t, traj,
+def plot_pendulum_trajectory(pendulum, t, q, dq,
                              plot_orientation=True,
                              energy=False,
                              phase_plots=True,
@@ -16,8 +16,6 @@ def plot_pendulum_trajectory(pendulum, t, traj,
                              q0=None,
                              **kwargs):
     n = pendulum.dof
-    q = traj[:, 0::2]
-    dq = traj[:, 1::2]
     qlabels = {i: f'$q_{i + 1}$' for i in range(n)}
     dqlabels = {i: f'$\\omega_{i+1}$' for i in range(n)}
     labels = {
@@ -55,6 +53,7 @@ def plot_pendulum_trajectory(pendulum, t, traj,
     if n == 2:
         if phase_plots:
             f, axes = plt.subplots(2, 2)
+            traj = np.c_[q, dq]
             for ax, a, b in [
                 (axes[0, 0], 0, 2),
                 (axes[0, 1], 1, 3),
@@ -87,8 +86,8 @@ def plot_pendulum_trajectory(pendulum, t, traj,
     kinfun = getattr(pendulum, 'kinetic_energy', None)
     if energy and callable(kinfun):
         f, ax = plt.subplots()
-        K = pendulum.kinetic_energy(traj[:, 0::2], traj[:, 1::2])
-        V = pendulum.potential_energy(traj[:, 0::2])
+        K = pendulum.kinetic_energy(q, dq)
+        V = pendulum.potential_energy(q)
         E = K + V
         ax.plot(t, K, label='K')
         ax.plot(t, V, label='V')
@@ -99,7 +98,7 @@ def plot_pendulum_trajectory(pendulum, t, traj,
         figures.append(f)
 
     f, ax = plt.subplots()
-    link_fkin = pendulum.forward_kinematics_for_each_link(traj[:, 0::2])
+    link_fkin = pendulum.forward_kinematics_for_each_link(q)
     for i in range(pendulum.dof):
         ax.plot(link_fkin[:, i, 0], link_fkin[:, i, 1], alpha=.3)
     plot = RobotPlot(ax, f=f)

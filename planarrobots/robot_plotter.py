@@ -107,14 +107,13 @@ class RobotPlot:
         return update
 
     def _create_line_segments(self, robot, q):
-        t = list(robot.link_trafos(q))
+        if q.ndim > 1:
+            raise ValueError
+        lfk = np.zeros((robot.dof+1, 3))
+        lfk[1:, :] = robot.forward_kinematics_for_each_link(q)
 
-        def get_point_on_chain(i):
-            trafo = reduce(lambda x, y: x @ y, t[0:i], np.eye(3)[np.newaxis, :, :])
-            return trafo[0, 0:2, 2]
-
-        for i in range(len(t)):
-            yield get_point_on_chain(i), get_point_on_chain(i + 1)
+        for i in range(robot.dof):
+            yield lfk[i, 0:2], lfk[i+1, 0:2]
 
     def plot_robot(self, robot, q, color=None, other_color=None, plot_jacobian=False, equal_aspect=True, dot_size=50,
                    manual_lim=None, keep_lim=False, full_lim=False, exclude_arm=False, endeffector=True, show_joints=True,  **kwargs):

@@ -44,4 +44,3 @@ class DoublePendulum(Pendulum):
             cc_fun=coriolis_centrifugal,
             gravity_fun=gravity,
         )
-

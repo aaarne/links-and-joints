@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.optimize import root, minimize, root_scalar
-from allerlei.lines import ClosedCurve
 
 
 def equipotential_line(n, E, fun, center=np.array([0, 0]), d0=0.1):
@@ -14,4 +13,5 @@ def equipotential_line(n, E, fun, center=np.array([0, 0]), d0=0.1):
 
         sol = minimize(obj, x0=d0)
         points[i, :] = center + sol.x * v
-    return ClosedCurve(points)
+    # This changed from ClosedCurve(points) to points
+    return points

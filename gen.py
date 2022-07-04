@@ -34,5 +34,4 @@ trafos = {
 def generate_planar_model(spec):
     """spec is a string x?y?r*
        example 'xr' is a single pendulum on a cart in x direction"""
-
-    
+    pass

@@ -3,7 +3,7 @@ from itertools import *
 import numpy as np
 from numpy import sin, cos
 from functools import reduce
-from .. import hom2xyphi
+from allerlei import hom2xyphi
 from .planar_jacobians import jacobians
 from .mass_3dof import *
 

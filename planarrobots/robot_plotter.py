@@ -1,6 +1,6 @@
 import numpy as np
 from functools import reduce
-from .. import TUMColors
+from allerlei import TUMColors
 
 
 class RobotPlot:

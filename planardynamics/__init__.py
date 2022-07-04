@@ -1,5 +1,6 @@
 from .double_pendulum import DoublePendulum
 from .triple_pendulum import TriplePendulum
+from .elastic_pendulum import ElasticDoublePendulum
 from .pendulum import StopIntegration
 from .misc import sample_phi
 from .controllers import *

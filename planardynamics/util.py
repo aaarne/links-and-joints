@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from ..planarrobots import RobotPlot
-from ..timer import Timer
+from allerlei import Timer
 
 _animations = list()
 

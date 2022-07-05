@@ -77,15 +77,10 @@ class PlanarDynamicalSystem:
         else:
             raise ValueError
 
-    def sim(self, q0, dq0, dt, t_max,
-            controllers=None,
-            events=None,
-            verbose=False):
+    def create_dynamics(self, controllers=None):
         n = self.dof
         if controllers is None:
             controllers = []
-        if events is None:
-            events = []
 
         def ode(t, y):
             q, dq = y[0:n], y[n:]
@@ -97,8 +92,30 @@ class PlanarDynamicalSystem:
             )
             return np.r_[dq, ddq]
 
+        return ode
+
+    def linearize(self, q, dq=None):
+        from numdifftools import Jacobian
+        if dq is None:
+            dq = np.zeros(self.dof)
+        eom = self.create_dynamics()
+        A = Jacobian(lambda y: eom(0, y), step=0.1)(np.r_[q, dq])
+
+        def f(x):
+            return self.create_dynamics(controllers=[lambda t, q, dq: x])(0, np.r_[q, dq])
+
+        B = Jacobian(f)(np.array([0, 0]))
+        return A, B
+
+    def sim(self, q0, dq0, dt, t_max,
+            controllers=None,
+            events=None,
+            verbose=False):
+        if events is None:
+            events = []
+
         sol = solve_ivp(
-            fun=ode,
+            fun=self.create_dynamics(controllers),
             t_span=(0, t_max),
             y0=np.r_[q0, dq0],
             method='RK45',
@@ -113,4 +130,5 @@ class PlanarDynamicalSystem:
             print(f"In total {len(sol.t)} time points were evaluated and the rhs was evaluated {sol.nfev} times.")
 
         traj = sol.y.T
+        n = self.dof
         return sol.t, traj[:, 0:n], traj[:, n:]

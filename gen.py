@@ -1,10 +1,9 @@
+import numpy
 from sympy import *
 from sympy.physics.mechanics import LagrangesMethod
 from functools import reduce
-from itertools import islice
-from sympy.printing.numpy import NumPyPrinter
-
-do_simplify = True
+from sympy.printing.numpy import NumPyPrinter, SciPyPrinter
+from allerlei.timer import Timer
 
 
 def create_rot_trafo(q, l):
@@ -15,7 +14,7 @@ def create_rot_trafo(q, l):
     ])
 
 
-def create_x_trafo(q, l):
+def create_x_trafo(q, _):
     return Matrix([
         [1, 0, q],
         [0, 1, 0],
@@ -23,7 +22,7 @@ def create_x_trafo(q, l):
     ])
 
 
-def create_y_trafo(q, l):
+def create_y_trafo(q, _):
     return Matrix([
         [1, 0, 0],
         [0, 1, q],
@@ -38,7 +37,7 @@ trafo_funs = {
 }
 
 
-def generate_planar_model(spec):
+def generate_planar_model(spec, do_simplify=False, compute_metric=False, inverse_dynamics=False):
     """spec is a string x?y?r*
        example 'xr' is a single pendulum on a cart in x direction"""
     n = len(spec)
@@ -48,15 +47,19 @@ def generate_planar_model(spec):
     m = [Symbol(f'm[{i}]') for i in range(n)]
     qr = [Symbol(f'qr[{i}]') for i in range(n)]
     k = [Symbol(f'k[{i}]') for i in range(n)]
+    tau_in = [Symbol(f'tau_in[{i}]') for i in range(n)]
     g = Symbol('g')
+
+    printer = SciPyPrinter()
 
     trafos = [trafo_funs[s](qi, li) for s, qi, li in zip(spec, q, l)]
 
     def com(i):
         return reduce(lambda x, y: x @ y, trafos[0:i])
 
-    coms = [com(i + 1) for i in range(n)]
-    tcp = coms[-1]
+    coms = Array([Array(com(i + 1)) for i in range(n)])
+
+    tcp = coms[-1].tomatrix()
 
     fkin = Matrix([
         tcp[0, 2],
@@ -69,7 +72,7 @@ def generate_planar_model(spec):
         return 0.5 * m[i] * vel_sqr
 
     def compute_potential_energy(i):
-        return m[i] * g * coms[i][1, 2] + .5*k[i]*(q[i]-qr[i])**2
+        return m[i] * g * coms[i][1, 2] + .5 * k[i] * (q[i] - qr[i]) ** 2
 
     T = sum(compute_kinetic_energy(i) for i in range(n))
     V = sum(compute_potential_energy(i) for i in range(n))
@@ -86,35 +89,51 @@ def generate_planar_model(spec):
     g = Matrix([-collect(forcing[i], g).coeff(g) * g for i in range(n)])
     cc = -forcing - g
 
+    def create_inverse_dynamics():
+        taum = Matrix(tau_in)
+        return m.inv() @ (taum + forcing)
+
     J = Matrix([diff(fkin, qi).T for qi in q]).T
 
-    jacobi_metric = 2*(Symbol('E') - V)*m
+    def create_jacobi_metric():
+        return 2 * (Symbol('E') - V) * m
 
     def expr_to_code(expr, key=None):
-        print(f"Generating {key}.")
-        npq = [Symbol(f'q[{i}]') for i in range(n)]
-        npdq = [Symbol(f'dq[{i}]') for i in range(n)]
+        with Timer(f"Generating {key}."):
+            npq = [Symbol(f'q[{i}]') for i in range(n)]
+            npdq = [Symbol(f'dq[{i}]') for i in range(n)]
 
-        def replace_q(expr, i):
-            if i == n:
-                return expr
+            def replace_q(expr, i):
+                if i == n:
+                    return expr
+                else:
+                    return replace_q(expr.subs(q[i], npq[i]), i + 1)
+
+            def replace_dq(expr, i):
+                if i == n:
+                    return expr
+                else:
+                    d = Derivative(q[i], t)
+                    return replace_dq(expr.subs(d, npdq[i]), i + 1)
+
+            if do_simplify:
+                expr = simplify(expr)
+
+            expr = replace_q(replace_dq(expr, 0), 0)
+
+            if type(expr) is ImmutableDenseNDimArray:
+                shape = expr.shape
+                a, b = reduce(lambda x, y: x*y, shape[0:-1], 1), shape[-1]
+                expr = expr.reshape(a, b).tomatrix()
+                return f"return {printer.doprint(expr)}.reshape({shape})"
             else:
-                return replace_q(expr.subs(q[i], npq[i]), i + 1)
+                return f"return {printer.doprint(expr)}"
 
-        def replace_dq(expr, i):
-            if i == n:
-                return expr
-            else:
-                d = Derivative(q[i], t)
-                return replace_dq(expr.subs(d, npdq[i]), i + 1)
-
-        if do_simplify:
-            expr = simplify(expr)
-
-        return NumPyPrinter().doprint(
-            replace_q(
-                replace_dq(
-                    expr, 0), 0))
+    def create_code_optionally(option, gen_expr, key=None):
+        if option:
+            return f"{expr_to_code(gen_expr(), key)}"
+        else:
+            return f"raise NotImplementedError"
 
     print("Generating code...")
     return f"""import numpy
@@ -123,59 +142,67 @@ from ..pds import PlanarDynamicalSystem
 
 class {spec.upper()}(PlanarDynamicalSystem):
     def __init__(self, l, m, g, k, qr):
-        super().__init__({n}, l, m, g, k, qr)
+        super().__init__({n}, l, m, g, k, qr, {inverse_dynamics})
         
     def mass_matrix(self, q):
         l, m, g, k, qr = self.params
-        return {expr_to_code(m, 'Mass Matrix')}
+        {expr_to_code(m, 'Mass Matrix')}
 
     def gravity(self, q):
         l, m, g, k, qr = self.params
-        expr = {expr_to_code(g, 'Gravity Vector')}
-        return expr.flatten()
+        {expr_to_code(g, 'Gravity Vector')}.flatten()
         
     def coriolis_centrifugal_forces(self, q, dq):
         l, m, g, k, qr = self.params
-        expr = {expr_to_code(cc, 'Coriolis & Centrifugal Forces')}
-        return expr.flatten()
+        {expr_to_code(cc, 'Coriolis & Centrifugal Forces')}.flatten()
         
     def potential(self, q):
         l, m, g, k, qr = self.params
-        return {expr_to_code(V, 'Potential')}
+        {expr_to_code(V, 'Potential')}
+        
+    def _ddq(self, q, dq, tau_in):
+        l, m, g, k, qr = self.params
+        {create_code_optionally(inverse_dynamics, create_inverse_dynamics, 'Inverse Dynamics')} 
         
     def kinetic_energy(self, q, dq):
         l, m, g, k, qr = self.params
-        return {expr_to_code(T, 'Kinetic Energy')}
+        {expr_to_code(T, 'Kinetic Energy')}
         
     def energy(self, q, dq):
         l, m, g, k, qr = self.params
-        return {expr_to_code(V + T, 'Total Energy')}
+        {expr_to_code(V + T, 'Total Energy')}
         
     def _link_positions(self, q):
         l, m, g, k, qr = self.params
-        return {expr_to_code(Matrix(coms), 'CoM Positions')}
+        {expr_to_code(coms, 'CoM Positions')}
         
     def _fkin(self, q):
         l, m, g, k, qr = self.params
-        return {expr_to_code(fkin, 'Forward Kinematic')}
+        {expr_to_code(fkin, 'Forward Kinematic')}
         
     def endeffector_pose(self, q):
         l, m, g, k, qr = self.params
-        return {expr_to_code(tcp, 'TCP Pose')}
+        {expr_to_code(tcp, 'TCP Pose')}
 
     def jacobian(self, q):
         l, m, g, k, qr = self.params
-        return {expr_to_code(J, 'Jacobian')}
+        {expr_to_code(J, 'Jacobian')}
         
     def jacobi_metric(self, q, E):
         l, m, g, k, qr = self.params
-        return {expr_to_code(jacobi_metric, 'Jacobi Metric')}
+        {create_code_optionally(compute_metric, create_jacobi_metric, 'Jacobi Metric')}
 """
 
 
 if __name__ == "__main__":
-    import sys
-    spec = sys.argv[1]
-    with open(f"planar_dynamical_system/generated/{spec}.py", "w") as f:
-        f.write(generate_planar_model(spec))
+    import argparse
 
+    parser = argparse.ArgumentParser(description="Generate Planar Dynamical Model")
+    parser.add_argument('spec', type=str, help='Specification. [xyr]*')
+    parser.add_argument('-s', '--simplify', action='store_true')
+    parser.add_argument('-m', '--metric', action='store_true')
+    parser.add_argument('-i', '--inverse_dynamics', action='store_true')
+    parser.set_defaults(simplify=False, metric=False, inverse_dynamics=False)
+    args = parser.parse_args()
+    with open(f"planar_dynamical_system/generated/{args.spec}.py", "w") as f:
+        f.write(generate_planar_model(args.spec, args.simplify, args.metric, args.inverse_dynamics))

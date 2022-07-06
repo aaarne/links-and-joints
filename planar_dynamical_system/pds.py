@@ -14,7 +14,7 @@ def hom2xyphi(hom):
 
 
 class PlanarDynamicalSystem:
-    def __init__(self, n_dof, l, m, g, k, qr):
+    def __init__(self, n_dof, l, m, g, k, qr, invdyn):
         self.dof = n_dof
         self._l = l
         self._m = m
@@ -22,6 +22,7 @@ class PlanarDynamicalSystem:
         self._k = k
         self._q_rest = qr
         self._p = l, m, g, k, qr
+        self._has_inverse_dynamics = invdyn
 
     @property
     def params(self):
@@ -34,6 +35,9 @@ class PlanarDynamicalSystem:
         raise NotImplementedError
 
     def coriolis_centrifugal_forces(self, q, dq):
+        raise NotImplementedError
+
+    def _ddq(self, q, dq, tau_in):
         raise NotImplementedError
 
     def potential(self, q):
@@ -92,7 +96,14 @@ class PlanarDynamicalSystem:
             )
             return np.r_[dq, ddq]
 
-        return ode
+
+        def ode_precomputed(t, y):
+            q, dq = y[0:n], y[n:]
+            tau = sum((c(t, q, dq) for c in controllers), np.zeros(self.dof))
+            ddq = self._ddq(q, dq, tau).flatten()
+            return np.r_[dq, ddq]
+
+        return ode_precomputed if self._has_inverse_dynamics else ode
 
     def linearize(self, q, dq=None):
         from numdifftools import Jacobian

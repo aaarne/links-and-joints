@@ -19,8 +19,8 @@ def plot_pendulum_trajectory(pendulum, t, q, dq,
     qlabels = {i: f'$q_{i + 1}$' for i in range(n)}
     dqlabels = {i: f'$\\omega_{i+1}$' for i in range(n)}
     labels = {
-        **{2 * i: f'$q_{i + 1}$' for i in range(n)},
-        **{2*i+1: f'$\\omega_{i+1}$' for i in range(n)}
+        **{i: f'$q_{i + 1}$' for i in range(n)},
+        **{i+n: f'$\\omega_{i+1}$' for i in range(n)}
     }
 
     figures = []
@@ -55,10 +55,10 @@ def plot_pendulum_trajectory(pendulum, t, q, dq,
             f, axes = plt.subplots(2, 2)
             traj = np.c_[q, dq]
             for ax, a, b in [
-                (axes[0, 0], 0, 2),
-                (axes[0, 1], 1, 3),
-                (axes[1, 0], 0, 1),
-                (axes[1, 1], 2, 3),
+                (axes[0, 0], 0, 1),
+                (axes[0, 1], 2, 3),
+                (axes[1, 0], 0, 2),
+                (axes[1, 1], 1, 3),
             ]:
                 ax.plot(traj[:, a], traj[:, b])
                 ax.set_xlabel(labels[a])

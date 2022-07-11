@@ -18,7 +18,7 @@ class RY(PlanarDynamicalSystem):
         l, m, g, k, qr = self.params
         return numpy.array([[2.0*dq[0]*dq[1]*m[1]*q[1] + 1.0*k[0]*q[0] - 1.0*k[0]*qr[0]], [-1.0*dq[0]**2*m[1]*q[1] + 1.0*k[1]*q[1] - 1.0*k[1]*qr[1]]]).flatten()
         
-    def potential(self, q):
+    def _potential(self, q):
         l, m, g, k, qr = self.params
         return g*l[0]*m[0]*numpy.sin(q[0]) + g*m[1]*(l[0]*numpy.sin(q[0]) + q[1]*numpy.cos(q[0])) + 0.5*k[0]*(-q[0] + qr[0])**2 + 0.5*k[1]*(-q[1] + qr[1])**2
         
@@ -26,11 +26,11 @@ class RY(PlanarDynamicalSystem):
         l, m, g, k, qr = self.params
         raise NotImplementedError 
         
-    def kinetic_energy(self, q, dq):
+    def _kinetic_energy(self, q, dq):
         l, m, g, k, qr = self.params
         return 0.5*dq[0]**2*l[0]**2*m[0] + 0.5*m[1]*(dq[0]**2*l[0]**2 + dq[0]**2*q[1]**2 + 2*dq[0]*dq[1]*l[0] + dq[1]**2)
         
-    def energy(self, q, dq):
+    def _energy(self, q, dq):
         l, m, g, k, qr = self.params
         return 0.5*dq[0]**2*l[0]**2*m[0] + g*l[0]*m[0]*numpy.sin(q[0]) + g*m[1]*(l[0]*numpy.sin(q[0]) + q[1]*numpy.cos(q[0])) + 0.5*k[0]*(-q[0] + qr[0])**2 + 0.5*k[1]*(-q[1] + qr[1])**2 + 0.5*m[1]*(dq[0]**2*l[0]**2 + dq[0]**2*q[1]**2 + 2*dq[0]*dq[1]*l[0] + dq[1]**2)
         

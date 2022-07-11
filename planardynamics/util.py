@@ -24,7 +24,7 @@ def plot_pendulum_trajectory(pendulum, t, q, dq,
     }
 
     figures = []
-    f, axes = plt.subplots(3, 1)
+    f, axes = plt.subplots(3 if q0 else 2, 1)
     for i in range(n):
         axes[0].plot(t, q[:, i], label=qlabels[i])
     if q0:
@@ -32,7 +32,7 @@ def plot_pendulum_trajectory(pendulum, t, q, dq,
         for i in range(n):
             axes[1].plot(t, delta[:, i], label=f'$\\Delta q_{i+1}$')
     for i in range(n):
-        axes[2].plot(t, dq[:, i], label=dqlabels[i])
+        axes[2 if q0 else 1].plot(t, dq[:, i], label=dqlabels[i])
     for ax in axes:
         ax.grid()
         ax.legend()

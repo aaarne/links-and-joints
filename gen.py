@@ -156,7 +156,7 @@ class {spec.upper()}(PlanarDynamicalSystem):
         l, m, g, k, qr = self.params
         {expr_to_code(cc, 'Coriolis & Centrifugal Forces')}.flatten()
         
-    def potential(self, q):
+    def _potential(self, q):
         l, m, g, k, qr = self.params
         {expr_to_code(V, 'Potential')}
         
@@ -164,11 +164,11 @@ class {spec.upper()}(PlanarDynamicalSystem):
         l, m, g, k, qr = self.params
         {create_code_optionally(inverse_dynamics, create_inverse_dynamics, 'Inverse Dynamics')} 
         
-    def kinetic_energy(self, q, dq):
+    def _kinetic_energy(self, q, dq):
         l, m, g, k, qr = self.params
         {expr_to_code(T, 'Kinetic Energy')}
         
-    def energy(self, q, dq):
+    def _energy(self, q, dq):
         l, m, g, k, qr = self.params
         {expr_to_code(V + T, 'Total Energy')}
         

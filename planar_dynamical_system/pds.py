@@ -3,6 +3,7 @@ from itertools import chain, islice, repeat
 import numpy as np
 from ..planardynamics.pendulum import Pendulum
 from scipy.integrate import solve_ivp
+from functools import partial
 
 
 def hom2xyphi(hom):
@@ -23,6 +24,8 @@ class PlanarDynamicalSystem:
         self._q_rest = qr
         self._p = l, m, g, k, qr
         self._has_inverse_dynamics = invdyn
+        self._eq = None
+        self._U0 = None
 
     @property
     def params(self):
@@ -40,13 +43,13 @@ class PlanarDynamicalSystem:
     def _ddq(self, q, dq, tau_in):
         raise NotImplementedError
 
-    def potential(self, q):
+    def _potential(self, q):
         raise NotImplementedError
 
-    def kinetic_energy(self, q, dq):
+    def _kinetic_energy(self, q, dq):
         raise NotImplementedError
 
-    def energy(self, q, dq):
+    def _energy(self, q, dq):
         raise NotImplementedError
 
     def _link_positions(self, q):
@@ -54,6 +57,18 @@ class PlanarDynamicalSystem:
 
     def _fkin(self, q):
         raise NotImplementedError
+
+    @property
+    def equilibrium(self):
+        if self._eq is None:
+            self._eq = self.compute_equilibrium()
+        return self._eq
+
+    @property
+    def U0(self):
+        if self._U0 is None:
+            self._U0 = self._potential(self.equilibrium)
+        return self._U0
 
     def jacobian(self, q):
         raise NotImplementedError
@@ -81,6 +96,10 @@ class PlanarDynamicalSystem:
         else:
             raise ValueError
 
+    def internal_forces(self, q, dq):
+        return - self.coriolis_centrifugal_forces(q, dq) \
+               - self.gravity(q)
+
     def create_dynamics(self, controllers=None):
         n = self.dof
         if controllers is None:
@@ -95,7 +114,6 @@ class PlanarDynamicalSystem:
                     - self.gravity(q)
             )
             return np.r_[dq, ddq]
-
 
         def ode_precomputed(t, y):
             q, dq = y[0:n], y[n:]
@@ -118,22 +136,26 @@ class PlanarDynamicalSystem:
         B = Jacobian(f)(np.array([0, 0]))
         return A, B
 
-    def sim(self, q0, dq0, dt, t_max,
+    def sim(self, q0, dq0,
+            t_max,
             controllers=None,
-            events=None,
-            verbose=False):
-        if events is None:
-            events = []
+            dt=None,
+            dense=True,
+            return_sol=False,
+            verbose=False,
+            wrap=False,
+            **kwargs
+            ):
 
         sol = solve_ivp(
             fun=self.create_dynamics(controllers),
             t_span=(0, t_max),
             y0=np.r_[q0, dq0],
             method='RK45',
-            dense_output=True,
-            events=events,
-            t_eval=np.arange(0, t_max, dt),
-            max_step=dt,
+            dense_output=dense,
+            t_eval=np.arange(0, t_max, dt) if dt and dense else None,
+            max_step=dt if dt else np.inf,
+            **kwargs,
         )
 
         if verbose:
@@ -142,4 +164,78 @@ class PlanarDynamicalSystem:
 
         traj = sol.y.T
         n = self.dof
-        return sol.t, traj[:, 0:n], traj[:, n:]
+        q = np.arctan2(np.sin(traj[:, 0:n]), np.cos(traj[:, 0:n])) if wrap else traj[:, 0:n]
+        if return_sol:
+            return sol.t, q, traj[:, n:], sol
+        else:
+            return sol.t, q, traj[:, n:]
+
+    def create_metric(self, E_total):
+        return partial(self.jacobi_metric, E=E_total)
+
+    def potential_energy(self, q):
+        if q.ndim == 1:
+            return self._potential(q)
+        elif q.ndim == 2:
+            return self._potential(q.T)
+        else:
+            raise ValueError
+
+    def energy(self, q, dq):
+        if q.ndim == 1:
+            return self._energy(q, dq)
+        elif q.ndim == 2:
+            return self._energy(q.T, dq.T)
+        else:
+            raise ValueError
+
+    def M(self, q):
+        return self.mass_matrix(q)
+
+    def kinetic_energy(self, q, dq):
+        if q.ndim == dq.ndim == 1:
+            return self._kinetic_energy(q, dq)
+        elif q.ndim == dq.ndim == 2:
+            return self._kinetic_energy(q.T, dq.T)
+        else:
+            raise ValueError
+
+    def create_convergence_check(self, eps=1e-3, terminal=True):
+        n = self.dof
+
+        def convergence_check(t, y):
+            q, dq = y[0:n], y[n:]
+            if t < 1:
+                return np.inf
+            else:
+                return np.linalg.norm(dq) - eps
+
+        convergence_check.terminal = terminal
+        return convergence_check
+
+    def find_velocity_for_energy(self, q, tangent, energy):
+        alpha = np.sqrt(2 * (energy - self.potential_energy(q)) /
+                        (tangent.T @ self.mass_matrix(q) @ tangent))
+        return alpha * tangent
+
+    def compute_equilibrium(self, q0=None):
+        if q0 is None:
+            q0 = np.zeros(self.dof)
+
+        def viscous_damping(t, q, dq):
+            return -2 * self.mass_matrix(q) @ dq
+
+        _, q, _, sol = self.sim(
+            q0=q0,
+            dq0=np.zeros(self.dof),
+            dt=1e-2,
+            controllers=[viscous_damping],
+            events=self.create_convergence_check(),
+            t_max=50.0,
+            return_sol=True,
+        )
+
+        if sol.status == 1:  # Termination event occured
+            return q[-1, :]
+        else:
+            raise ValueError("No equilibrium found.")

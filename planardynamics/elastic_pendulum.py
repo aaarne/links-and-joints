@@ -21,7 +21,7 @@ class ElasticDoublePendulum(DoublePendulum):
             lc1 = l1
         if lc2 is None:
             lc2 = l2
-        self._masses = [m1, m2]
+        self._masses = np.array([m1, m2])
         self._K = np.diag([0, 0]) if K is None else K
         self._q_rest = np.array([0, np.pi / 2]) if q_rest is None else q_rest
         super().__init__(m1=m1, m2=m2, l1=l1, l2=l2, lc1=lc1, lc2=lc2, II1=II1, II2=II2, g=g, extra_params=dict(
@@ -121,3 +121,16 @@ class ElasticDoublePendulum(DoublePendulum):
                 raise ValueError
 
         return met
+
+    def convert_to_new_class(self):
+        from ..planar_dynamical_system import DoublePendulum
+        p = self.params
+        return DoublePendulum(
+            l=np.array([p['l1'], p['l2']]),
+            m=np.array([p['m1'], p['m2']]),
+            g=p['g'],
+            k=np.diag(self._K),
+            qr=self._q_rest,
+        )
+
+

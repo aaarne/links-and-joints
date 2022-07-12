@@ -3,7 +3,6 @@ from .triple_pendulum import TriplePendulum
 from .elastic_pendulum import ElasticDoublePendulum
 from .pendulum import StopIntegration
 from .misc import sample_phi
-from .controllers import *
 from .util import plot_pendulum_trajectory
 from .equipotential_line import equipotential_line
 

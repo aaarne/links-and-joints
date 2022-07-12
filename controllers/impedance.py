@@ -30,6 +30,9 @@ class ImpedanceController:
             warn("Manually set desired velocity is ignored when desired_pos_fun is specified in constructor")
         self._xdot_des = x_dot_des
 
+    def coordinate(self, q):
+        return self._fkin(q)
+
     @property
     def xd(self):
         return self._x_des

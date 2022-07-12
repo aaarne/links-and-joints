@@ -7,9 +7,10 @@ def make_controller_conservative(controller):
         n = len(q)
         return qpsolvers.solve_qp(
             P=np.eye(n),
-            q=-2*controller(t, q, dq).reshape((1, n)),
-            A=dq.reshape((1, n)),
-            b=np.array([0]),
+            q=-2*controller(t, q, dq),
+            A=dq,
+            b=np.array([0]).reshape((1, 1)),
+            solver='quadprog'
         )
 
     return conservative_controller

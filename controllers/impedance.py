@@ -18,6 +18,12 @@ class ImpedanceController:
         self._x_des = 0 if self._scalar else np.zeros(K.shape[0])
         self._mass = mass_fun
 
+    def fkin(self, q):
+        return self._fkin(q)
+
+    def jacobian(self, q):
+        return self._jacobian(q)
+
     def set_target(self, x_des, x_dot_des=None):
         if self._desired_pos_fun:
             warn("Manually set desired position is ignored when desired_pos_fun is specified in constructor")

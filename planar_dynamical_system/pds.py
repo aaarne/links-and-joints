@@ -173,19 +173,19 @@ class PlanarDynamicalSystem:
     def create_metric(self, E_total):
         return partial(self.jacobi_metric, E=E_total)
 
-    def potential_energy(self, q):
+    def potential_energy(self, q, absolute=False):
         if q.ndim == 1:
-            return self._potential(q)
+            return self._potential(q) - (0 if absolute else self.U0)
         elif q.ndim == 2:
-            return self._potential(q.T)
+            return self._potential(q.T) - (0 if absolute else self.U0)
         else:
             raise ValueError
 
-    def energy(self, q, dq):
+    def energy(self, q, dq, absolute=False):
         if q.ndim == 1:
-            return self._energy(q, dq)
+            return self._energy(q, dq) - (0 if absolute else self.U0)
         elif q.ndim == 2:
-            return self._energy(q.T, dq.T)
+            return self._energy(q.T, dq.T) - (0 if absolute else self.U0)
         else:
             raise ValueError
 

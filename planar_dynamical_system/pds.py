@@ -81,7 +81,7 @@ class PlanarDynamicalSystem:
 
     def forward_kinematics(self, q):
         if q.ndim == 1:
-            return self._fkin(q)
+            return self._fkin(q).flatten() # Warning recently added .flatten() here
         elif q.ndim == 2:
             return self._fkin(q.T).T.squeeze()
 
@@ -239,3 +239,39 @@ class PlanarDynamicalSystem:
             return q[-1, :]
         else:
             raise ValueError("No equilibrium found.")
+
+    def bad_invkin(self, cart, q0=None, K=1.0, tol=1e-3, max_steps=100):
+        if q0 is not None:
+            q = q0
+        else:
+            q = np.random.uniform(-np.pi, np.pi, self.dof)
+
+        if cart.size == 3:
+            f = lambda x: self.forward_kinematics(x)
+            if self.dof == 3:
+                A = lambda x: np.linalg.inv(self.jacobian(x))
+            else:
+                A = lambda x: np.linalg.pinv(self.jacobian(x))
+        elif cart.size == 2:
+            f = lambda x: self.forward_kinematics(x)[0:2]
+            A = lambda x: np.linalg.pinv(self.jacobian(x)[0:2, :])
+        elif cart.size == 1:
+            f = lambda x: self.forward_kinematics(x)[0:1]
+            A = lambda x: np.linalg.pinv(self.jacobian(x)[0:1, :])
+        else:
+            raise ValueError("Illegal length of desired task-space pose")
+
+        for _ in range(max_steps):
+            e = cart - f(q)
+            if np.linalg.norm(e) < tol:
+                break
+            try:
+                inc = A(q) @ np.squeeze(K * e)
+            except ValueError:
+                inc = (A(q) * np.squeeze(K * e))[:, 0]
+            q += inc
+        else:
+            raise AssertionError(f"No invkin solution found for {cart}.")
+
+        return np.arctan2(np.sin(q), np.cos(q))
+

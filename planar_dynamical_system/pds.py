@@ -151,7 +151,7 @@ class PlanarDynamicalSystem:
             fun=self.create_dynamics(controllers),
             t_span=(0, t_max),
             y0=np.r_[q0, dq0],
-            method='RK45',
+            method='LSODA',
             dense_output=dense,
             t_eval=np.arange(0, t_max, dt) if dt and dense else None,
             max_step=dt if dt else np.inf,

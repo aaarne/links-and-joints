@@ -123,9 +123,9 @@ class PlanarDynamicalSystem:
 
         return ode_precomputed if self._has_inverse_dynamics else ode
 
-    def linearized_stiffness(self, q):
+    def linearized_stiffness(self, q, step=.1):
         from numdifftools import Jacobian
-        return np.diag(self._k) + Jacobian(self.gravity, step=.1)(q)
+        return np.diag(self._k) + Jacobian(self.gravity, step=step)(q)
 
     def linearize(self, q, dq=None):
         from numdifftools import Jacobian
@@ -173,6 +173,10 @@ class PlanarDynamicalSystem:
             return sol.t, q, traj[:, n:], sol
         else:
             return sol.t, q, traj[:, n:]
+
+    def final_state(self, q0, dq0, t, controllers=None, speed_factor=1.0):
+        t, q, dq = self.sim(q0, dq0, speed_factor*t, controllers=controllers)
+        return q[-1], dq[-1]
 
     def create_metric(self, E_total):
         return partial(self.jacobi_metric, E=E_total)

@@ -7,6 +7,7 @@ _animations = list()
 
 def plot_pendulum_trajectory(pendulum, t, q, dq,
                              plot_orientation=True,
+                             first_state=False,
                              energy=False,
                              phase_plots=True,
                              plot_fkin=False,
@@ -83,6 +84,7 @@ def plot_pendulum_trajectory(pendulum, t, q, dq,
         f.tight_layout()
         figures.append(f)
 
+
     kinfun = getattr(pendulum, 'kinetic_energy', None)
     if energy and callable(kinfun):
         f, ax = plt.subplots()
@@ -97,8 +99,17 @@ def plot_pendulum_trajectory(pendulum, t, q, dq,
         f.tight_layout()
         figures.append(f)
 
-    f, ax = plt.subplots()
     link_fkin = pendulum.forward_kinematics_for_each_link(q)
+
+    if first_state:
+        f, ax = plt.subplots()
+        for i in range(pendulum.dof):
+            ax.plot(link_fkin[:, i, 0], link_fkin[:, i, 1], alpha=.3)
+        plot = RobotPlot(ax, f=f)
+        plot.plot_robot(pendulum, q[0])
+        figures.append(f)
+
+    f, ax = plt.subplots()
     for i in range(pendulum.dof):
         ax.plot(link_fkin[:, i, 0], link_fkin[:, i, 1], alpha=.3)
     plot = RobotPlot(ax, f=f)

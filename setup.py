@@ -7,6 +7,12 @@ setuptools.setup(
     author_email="arne.sachtler@tum.de",
     description="Dynamical Models of Planar Mechanical Systems",
     url="https://github.com/aaarne/links-and-joints",
-    packages=['links_and_joints', 'links_and_joints.planarrobots'],
+    packages=[
+        'links_and_joints', 
+        'links_and_joints.planarrobots',
+        'links_and_joints.planardynamics',
+        'links_and_joints.controllers',
+        'links_and_joints.planar_dynamical_system',
+        ],
     install_requires=['sympy'],
 )

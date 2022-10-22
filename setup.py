@@ -13,6 +13,7 @@ setuptools.setup(
         'links_and_joints.planardynamics',
         'links_and_joints.controllers',
         'links_and_joints.planar_dynamical_system',
+        'links_and_joints.planar_dynamical_system.generated',
         ],
     install_requires=['sympy'],
 )

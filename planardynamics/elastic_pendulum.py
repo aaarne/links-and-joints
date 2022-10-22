@@ -1,6 +1,7 @@
 import numpy as np
 from functools import reduce
-from . import DoublePendulum, equipotential_line
+from . import DoublePendulum
+from .equipotential_line import equipotential_line
 from .pendulum import *
 
 class ElasticDoublePendulum(DoublePendulum):
@@ -69,8 +70,8 @@ class ElasticDoublePendulum(DoublePendulum):
         else:
             raise ValueError
 
-    def equipotential_line(self, E, n):
-        return equipotential_line(n, E, self.potential_energy, self.equilibrium)
+    def equipotential_line(self, E, n, d0=.1):
+        return equipotential_line(n, E, self.potential_energy, self.equilibrium, d0=d0)
 
     def compute_equilibrium(self, q0=None, entire_trajectory=False):
         def viscous_damping(_, q, dq):

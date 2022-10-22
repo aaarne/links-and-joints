@@ -189,6 +189,10 @@ class PlanarDynamicalSystem:
         else:
             raise ValueError
 
+    def equipotential_line(self, E, n, d0=0.1):
+        from ..planardynamics.equipotential_line import equipotential_line
+        return equipotential_line(n, E, self.potential_energy, self.equilibrium, d0=d0)
+
     def energy(self, q, dq, absolute=False):
         if q.ndim == 1:
             return self._energy(q, dq) - (0 if absolute else self.U0)

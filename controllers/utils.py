@@ -36,7 +36,6 @@ def damping_design(mass, stiffness, damping_ratio):
                 Zeta = np.diag(damping_ratio)
             M1 = sqrtm(mass)
             K1 = sqrtm(stiffness)
-            # return (M1 @ K1 + K1 @ M1) * 0.7
             return M1 @ Zeta @ K1 + K1 @ Zeta @ M1
 
 

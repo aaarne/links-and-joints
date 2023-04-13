@@ -15,14 +15,17 @@ def plot_pendulum_trajectory(pendulum, t, q, dq,
                              streamer=None,
                              animation_destination=None,
                              q0=None,
+                             labels=None,
                              **kwargs):
     n = pendulum.dof
-    qlabels = {i: f'$q_{i + 1}$' for i in range(n)}
-    dqlabels = {i: f'$\\omega_{i+1}$' for i in range(n)}
-    labels = {
-        **{i: f'$q_{i + 1}$' for i in range(n)},
-        **{i+n: f'$\\omega_{i+1}$' for i in range(n)}
-    }
+    if labels is None:
+        qlabels = {i: f'$q_{i + 1}$' for i in range(n)}
+        dqlabels = {i: f'$\\omega_{i+1}$' for i in range(n)}
+    else:
+        qlabels = {i: labels[i] for i in range(n)}
+        dqlabels = {i: f"$\\dot{{{labels[i].strip('$')}}}$" for i in range(n)}
+
+    all_labels = {**qlabels, **dqlabels}
 
     figures = []
     f, axes = plt.subplots(3 if q0 else 2, 1)
@@ -62,8 +65,8 @@ def plot_pendulum_trajectory(pendulum, t, q, dq,
                 (axes[1, 1], 1, 3),
             ]:
                 ax.plot(traj[:, a], traj[:, b])
-                ax.set_xlabel(labels[a])
-                ax.set_ylabel(labels[b])
+                ax.set_xlabel(all_labels[a])
+                ax.set_ylabel(all_labels[b])
                 ax.grid()
             f.tight_layout()
             figures.append(f)

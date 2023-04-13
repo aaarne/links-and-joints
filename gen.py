@@ -78,10 +78,9 @@ def generate_planar_model(spec, do_simplify=False, compute_metric=False, inverse
     V = sum(compute_potential_energy(i) for i in range(n))
     L = T - V
 
-    print("Generating EoM...")
-    lm = LagrangesMethod(L, q)
-    lm.form_lagranges_equations()
-    print("done.\n")
+    with Timer("Generating EoM..."):
+        lm = LagrangesMethod(L, q)
+        lm.form_lagranges_equations()
 
     m = lm.mass_matrix
     forcing = lm.forcing

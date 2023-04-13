@@ -45,3 +45,15 @@ def weighted_pinv(matrix, weighing_matrix):
     A = weighing_matrix
     return A @ J.T @ inv(J @ A @ J.T)
 
+
+def lqr(a, b, q, r):
+    from scipy.linalg import solve_continuous_are
+    s = solve_continuous_are(a, b, q, r)
+    return np.linalg.solve(r, b.T @ s)
+
+
+def ctrb(a, b):
+    n = a.shape[0]
+    return np.hstack(
+        [b] + [np.linalg.matrix_power(a, i) @ b for i in range(1, n)]
+    )

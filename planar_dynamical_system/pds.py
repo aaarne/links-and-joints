@@ -28,6 +28,21 @@ class PlanarDynamicalSystem:
         self._U0 = None
 
     @property
+    def link_lengths(self):
+        return np.array(self._l)
+
+    @property
+    def masses(self):
+        return np.array(self._m)
+
+    @property
+    def stiffness(self):
+        return np.array(self._k)
+
+    def rest_position(self):
+        return np.array(self._q_rest)
+
+    @property
     def params(self):
         return self._p
 
@@ -127,18 +142,31 @@ class PlanarDynamicalSystem:
         from numdifftools import Jacobian
         return np.diag(self._k) + Jacobian(self.gravity, step=step)(q)
 
-    def linearize(self, q, dq=None):
+    def linearize_numeric(self, q, dq=None, input=None):
         from numdifftools import Jacobian
         if dq is None:
             dq = np.zeros(self.dof)
+        if input is None:
+            input = np.zeros(self.dof)
         eom = self.create_dynamics()
         A = Jacobian(lambda y: eom(0, y), step=0.1)(np.r_[q, dq])
 
         def f(x):
             return self.create_dynamics(controllers=[lambda t, q, dq: x])(0, np.r_[q, dq])
 
-        B = Jacobian(f)(np.array([0, 0]))
+        B = Jacobian(f)(input)
         return A, B
+
+    def linearize(self, q):
+        n = self.dof
+        A = np.zeros((2*n, 2*n))
+        A[0:n, n:] = np.eye(n)
+        minv = np.linalg.inv(self.mass_matrix(q))
+        A[n:, 0:n] = -minv @ self.linearized_stiffness(q)
+        B = np.zeros((2*n, n))
+        B[n:, :] = minv
+        return A, B
+
 
     def sim(self, q0, dq0,
             t_max,

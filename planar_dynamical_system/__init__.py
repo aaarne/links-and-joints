@@ -4,4 +4,3 @@ from .generated.ry import RY as SLIP
 from .generated.xyrr import XYRR as DoublePendulumOn2Dof
 from .generated.rrr import RRR as ThreeDofPlanarRobot
 from .generated.xrr import XRR as DoublePendulumOnCart
-from .generated.rrrrr import RRRRR

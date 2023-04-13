@@ -45,14 +45,13 @@ def weighted_pinv(matrix, weighing_matrix):
     return A @ J.T @ inv(J @ A @ J.T)
 
 
-def lqr(a, b, q, r):
-    from scipy.linalg import solve_continuous_are
-    s = solve_continuous_are(a, b, q, r)
-    return np.linalg.solve(r, b.T @ s)
+def switch_off_controller_at(t_switch):
+    def transformer(ctrl):
+        def switchable(t, q, dq):
+            if t < t_switch:
+                return ctrl(t, q, dq)
+            else:
+                return np.zeros(pc.dof)
 
-
-def ctrb(a, b):
-    n = a.shape[0]
-    return np.hstack(
-        [b] + [np.linalg.matrix_power(a, i) @ b for i in range(1, n)]
-    )
+        return switchable
+    return transformer

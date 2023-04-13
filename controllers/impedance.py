@@ -5,6 +5,42 @@ from warnings import warn
 from .utils import transform_mass, damping_design
 
 
+class JointImpedanceController:
+    def __init__(self, mass_fun, K, Zeta, desired_jpos_fun=None, desired_vel_fun=None):
+        self._mass = mass_fun
+        self._K = K
+        self._Zeta = Zeta
+        self._desired_jpos_fun = desired_jpos_fun
+        self._desired_vel_fun = desired_vel_fun
+        self._q_des = np.zeros(K.shape[0])
+        self._q_dot_des = np.zeros(K.shape[0])
+
+    def set_target(self, q_des, q_dot_des=None):
+        if self._desired_jpos_fun:
+            warn("Manually set desired position is ignored when desired_pos_fun is specified in constructor")
+        self._q_des = q_des
+        if q_dot_des is not None:
+            self._q_dot_des = q_dot_des
+
+    def __call__(self, t, q, dq):
+        if self._desired_jpos_fun:
+            q_des = self._desired_jpos_fun(t)
+            self._q_des = q_des
+        else:
+            q_des = self._q_des
+
+        if self._desired_vel_fun:
+            qdot_des = self._desired_vel_fun(t)
+            self._q_dot_des = qdot_des
+        else:
+            qdot_des = self._q_dot_des
+
+        M = self._mass(q)
+        D = damping_design(M, self._K, self._Zeta)
+
+        tau = -self._K @ (q - q_des) - D @ (dq - qdot_des)
+        return tau.flatten()
+
 class ImpedanceController:
     def __init__(self, fkin_fun, jacobian_fun, mass_fun, K, Zeta, desired_pos_fun=None, desired_vel_fun=None):
         self._fkin = fkin_fun

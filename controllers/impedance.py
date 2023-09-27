@@ -41,6 +41,7 @@ class JointImpedanceController:
         tau = -self._K @ (q - q_des) - D @ (dq - qdot_des)
         return tau.flatten()
 
+
 class ImpedanceController:
     def __init__(self, fkin_fun, jacobian_fun, mass_fun, K, Zeta, desired_pos_fun=None, desired_vel_fun=None):
         self._fkin = fkin_fun

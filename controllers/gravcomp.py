@@ -3,4 +3,4 @@ class GravityCompensation:
         self._robot = robot
 
     def __call__(self, t, q, dq):
-        return self._robot.G(q)
+        return self._robot.gravity(q)

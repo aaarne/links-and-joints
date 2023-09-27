@@ -4,6 +4,7 @@ import numpy as np
 from ..planardynamics.pendulum import Pendulum
 from scipy.integrate import solve_ivp
 from functools import partial
+from numdifftools import Jacobian
 
 
 def hom2xyphi(hom):
@@ -26,6 +27,9 @@ class PlanarDynamicalSystem:
         self._has_inverse_dynamics = invdyn
         self._eq = None
         self._U0 = None
+        self._gravity_jacobian = None
+        self._dc_dq = None
+        self._dc_ddq = None
 
     @property
     def link_lengths(self):
@@ -96,7 +100,7 @@ class PlanarDynamicalSystem:
 
     def forward_kinematics(self, q):
         if q.ndim == 1:
-            return self._fkin(q).flatten() # Warning recently added .flatten() here
+            return self._fkin(q).flatten()  # Warning recently added .flatten() here
         elif q.ndim == 2:
             return self._fkin(q.T).T.squeeze()
 
@@ -112,8 +116,7 @@ class PlanarDynamicalSystem:
             raise ValueError
 
     def internal_forces(self, q, dq):
-        return - self.coriolis_centrifugal_forces(q, dq) \
-               - self.gravity(q)
+        return -self.coriolis_centrifugal_forces(q, dq) - self.gravity(q)
 
     def create_dynamics(self, controllers=None):
         n = self.dof
@@ -124,9 +127,10 @@ class PlanarDynamicalSystem:
             q, dq = y[0:n], y[n:]
             M = self.mass_matrix(q)
             ddq = np.linalg.inv(M) @ (
-                    sum((c(t, q, dq) for c in controllers), np.zeros(self.dof))
-                    - self.coriolis_centrifugal_forces(q, dq)
-                    - self.gravity(q)
+                sum((c(t, q, dq) for c in controllers), np.zeros(self.dof))
+                - self.coriolis_centrifugal_forces(q, dq)
+                - self.gravity(q)
+                - self.elastic_forces(q)
             )
             return np.r_[dq, ddq]
 
@@ -138,12 +142,14 @@ class PlanarDynamicalSystem:
 
         return ode_precomputed if self._has_inverse_dynamics else ode
 
-    def linearized_stiffness(self, q, step=.1):
-        from numdifftools import Jacobian
-        return np.diag(self._k) + Jacobian(self.gravity, step=step)(q)
+    def linearized_stiffness(self, q, step=0.1):
+        if self._gravity_jacobian is None:
+            self._gravity_jacobian = Jacobian(self.gravity, step=step)
+        return np.diag(self._k) + self._gravity_jacobian(q)
 
     def linearize_numeric(self, q, dq=None, input=None):
         from numdifftools import Jacobian
+
         if dq is None:
             dq = np.zeros(self.dof)
         if input is None:
@@ -152,38 +158,45 @@ class PlanarDynamicalSystem:
         A = Jacobian(lambda y: eom(0, y), step=0.1)(np.r_[q, dq])
 
         def f(x):
-            return self.create_dynamics(controllers=[lambda t, q, dq: x])(0, np.r_[q, dq])
+            return self.create_dynamics(controllers=[lambda t, q, dq: x])(
+                0, np.r_[q, dq]
+            )
 
         B = Jacobian(f)(input)
         return A, B
 
-    def linearize(self, q):
+    def linearize(self, q, dq=None):
         n = self.dof
-        A = np.zeros((2*n, 2*n))
+        A = np.zeros((2 * n, 2 * n))
         A[0:n, n:] = np.eye(n)
         minv = np.linalg.inv(self.mass_matrix(q))
         A[n:, 0:n] = -minv @ self.linearized_stiffness(q)
-        B = np.zeros((2*n, n))
+        B = np.zeros((2 * n, n))
         B[n:, :] = minv
+        if dq is not None:
+            A[n:, 0:n] -= minv @ self.coriolis_centrifugal_forces_dq(q, dq)
+            A[n:, n:] = -minv @ self.coriolis_centrifugal_forces_ddq(q, dq)
+
         return A, B
 
-
-    def sim(self, q0, dq0,
-            t_max,
-            controllers=None,
-            dt=None,
-            dense=True,
-            return_sol=False,
-            verbose=False,
-            wrap=False,
-            **kwargs
-            ):
-
+    def sim(
+        self,
+        q0,
+        dq0,
+        t_max,
+        controllers=None,
+        dt=None,
+        dense=True,
+        return_sol=False,
+        verbose=False,
+        wrap=False,
+        **kwargs,
+    ):
         sol = solve_ivp(
             fun=self.create_dynamics(controllers),
             t_span=(0, t_max),
             y0=np.r_[q0, dq0],
-            method='LSODA',
+            method="LSODA",
             dense_output=dense,
             t_eval=np.arange(0, t_max, dt) if dt and dense else None,
             max_step=dt if dt else np.inf,
@@ -192,18 +205,24 @@ class PlanarDynamicalSystem:
 
         if verbose:
             print(f"Solve IVP finished with '{sol.message}'.")
-            print(f"In total {len(sol.t)} time points were evaluated and the rhs was evaluated {sol.nfev} times.")
+            print(
+                f"In total {len(sol.t)} time points were evaluated and the rhs was evaluated {sol.nfev} times."
+            )
 
         traj = sol.y.T
         n = self.dof
-        q = np.arctan2(np.sin(traj[:, 0:n]), np.cos(traj[:, 0:n])) if wrap else traj[:, 0:n]
+        q = (
+            np.arctan2(np.sin(traj[:, 0:n]), np.cos(traj[:, 0:n]))
+            if wrap
+            else traj[:, 0:n]
+        )
         if return_sol:
             return sol.t, q, traj[:, n:], sol
         else:
             return sol.t, q, traj[:, n:]
 
     def final_state(self, q0, dq0, t, controllers=None, speed_factor=1.0):
-        t, q, dq = self.sim(q0, dq0, speed_factor*t, controllers=controllers)
+        t, q, dq = self.sim(q0, dq0, speed_factor * t, controllers=controllers)
         return q[-1], dq[-1]
 
     def create_metric(self, E_total):
@@ -219,6 +238,7 @@ class PlanarDynamicalSystem:
 
     def equipotential_line(self, E, n, d0=0.1):
         from ..planardynamics.equipotential_line import equipotential_line
+
         return equipotential_line(n, E, self.potential_energy, self.equilibrium, d0=d0)
 
     def energy(self, q, dq, absolute=False):
@@ -254,8 +274,11 @@ class PlanarDynamicalSystem:
         return convergence_check
 
     def find_velocity_for_energy(self, q, tangent, energy):
-        alpha = np.sqrt(2 * (energy - self.potential_energy(q)) /
-                        (tangent.T @ self.mass_matrix(q) @ tangent))
+        alpha = np.sqrt(
+            2
+            * (energy - self.potential_energy(q))
+            / (tangent.T @ self.mass_matrix(q) @ tangent)
+        )
         return alpha * tangent
 
     def compute_equilibrium(self, q0=None):
@@ -315,3 +338,11 @@ class PlanarDynamicalSystem:
 
         return np.arctan2(np.sin(q), np.cos(q))
 
+    def coriolis_centrifugal_forces_dq(self, q, dq):
+        raise NotIImplementedError
+
+    def coriolis_centrifugal_forces_ddq(self, q, dq):
+        raise NotIImplementedError
+
+    def elastic_forces(self, q):
+        raise NotIImplementedError

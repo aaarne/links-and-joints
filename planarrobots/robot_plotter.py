@@ -27,7 +27,8 @@ class RobotPlot:
         return transformed_points[:, 0], transformed_points[:, 1]
 
     def animated_trajectory(self, robot, traj, t=None, color=TUMColors.TUMBlue, othercolor=TUMColors.TUMOrange,
-                            interval=20, matthew=False, streamer=None, store_every_nth=None, text_function=None, lim=None):
+                            interval=20, matthew=False, streamer=None, store_every_nth=None, text_function=None, lim=None,
+                            show_endeffector=True):
         if lim is None:
             lim = robot.forward_kinematics(np.zeros(robot.number_of_joints))[0, 0]
             lim *= 5 / 4
@@ -51,7 +52,8 @@ class RobotPlot:
                  self._create_line_segments(robot, traj[0, :])]
         scatters = [self.ax.scatter(p2[0], p2[1], c=othercolor) for p1, p2 in
                     self._create_line_segments(robot, traj[0, :])]
-        endeff_line = self.plot_endeffector(robot.endeffector_pose(traj[0, :]), color=color)[0]
+        if show_endeffector:
+            endeff_line = self.plot_endeffector(robot.endeffector_pose(traj[0, :]), color=color)[0]
 
         self.ax.axis('equal')
         self.ax.set_xlim((-lim, lim))
@@ -69,15 +71,17 @@ class RobotPlot:
             for line, scatter, (p1, p2) in zip(lines, scatters, self._create_line_segments(robot, traj[i, :])):
                 line.set_data([p1[0], p2[0]], [p1[1], p2[1]])
                 scatter.set_offsets([p2[0], p2[1]])
-            endeff_line.set_data(*self._endeffector_lines(robot.endeffector_pose(traj[i, :])))
+            if show_endeffector:
+                endeff_line.set_data(*self._endeffector_lines(robot.endeffector_pose(traj[i, :])))
 
             if store_every_nth is not None and i % store_every_nth == 0:
                 self.plot_robot(robot, traj[i, :], endeffector=False, plot_jacobian=False)
                 self.f.canvas.draw()
 
-            updated.append(endeff_line)
             updated.extend(lines)
             updated.extend(scatters)
+            if show_endeffector:
+                updated.append(endeff_line)
             return updated
 
         from matplotlib.animation import FuncAnimation
@@ -149,7 +153,7 @@ class RobotPlot:
         if equal_aspect:
             self.ax.set_aspect('equal')
         if show_joints:
-            self.ax.scatter(0, 0, c=other_color, s=dot_size)
+            self.ax.scatter(0, 0, c=other_color, s=dot_size, **kwargs)
         if endeffector:
             self.plot_endeffector(robot.endeffector_pose(q), color=other_color, **kwargs)
 
@@ -165,7 +169,7 @@ class RobotPlot:
                 scale=10
             )
 
-        self.ax.grid(b=True)
+        self.ax.grid()
 
 
 class RobotPlot2D(RobotPlot):

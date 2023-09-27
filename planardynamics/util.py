@@ -16,6 +16,7 @@ def plot_pendulum_trajectory(pendulum, t, q, dq,
                              animation_destination=None,
                              q0=None,
                              labels=None,
+                             show_endeff=True,
                              **kwargs):
     n = pendulum.dof
     if labels is None:
@@ -25,7 +26,7 @@ def plot_pendulum_trajectory(pendulum, t, q, dq,
         qlabels = {i: labels[i] for i in range(n)}
         dqlabels = {i: f"$\\dot{{{labels[i].strip('$')}}}$" for i in range(n)}
 
-    all_labels = {**qlabels, **dqlabels}
+    all_labels = {**qlabels, **{i+n: v for i, v in dqlabels.items()}}
 
     figures = []
     f, axes = plt.subplots(3 if q0 else 2, 1)
@@ -116,7 +117,7 @@ def plot_pendulum_trajectory(pendulum, t, q, dq,
     for i in range(pendulum.dof):
         ax.plot(link_fkin[:, i, 0], link_fkin[:, i, 1], alpha=.3)
     plot = RobotPlot(ax, f=f)
-    anim = plot.animated_trajectory(pendulum, q, t=t, streamer=streamer, lim=max_cart_distance*1.5)
+    anim = plot.animated_trajectory(pendulum, q, t=t, streamer=streamer, lim=max_cart_distance*1.5, show_endeffector=show_endeff)
     if animation_destination is not None:
         with Timer("Writing pendulum simulation gif"):
             anim.save(f"{animation_destination}.gif", writer='imagemagick', fps=30)

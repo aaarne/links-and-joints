@@ -16,7 +16,11 @@ class XRR(PlanarDynamicalSystem):
         
     def coriolis_centrifugal_forces(self, q, dq):
         l, m, g, k, qr = self.params
-        return numpy.array([[-1.0*dq[1]**2*l[1]*m[1]*numpy.cos(q[1]) - 1.0*k[0]*(-q[0] + qr[0]) - 1.0*m[2]*(dq[1]**2*l[1]*numpy.cos(q[1]) + dq[1]**2*l[2]*numpy.cos(q[1] + q[2]) + 2*dq[1]*dq[2]*l[2]*numpy.cos(q[1] + q[2]) + dq[2]**2*l[2]*numpy.cos(q[1] + q[2]))], [-2.0*dq[1]*dq[2]*l[1]*l[2]*m[2]*numpy.sin(q[2]) - 1.0*dq[2]**2*l[1]*l[2]*m[2]*numpy.sin(q[2]) + 1.0*k[1]*q[1] - 1.0*k[1]*qr[1]], [1.0*dq[1]**2*l[1]*l[2]*m[2]*numpy.sin(q[2]) + 1.0*k[2]*q[2] - 1.0*k[2]*qr[2]]]).flatten()
+        return numpy.array([[-1.0*dq[1]**2*l[1]*m[1]*numpy.cos(q[1]) - 1.0*m[2]*(dq[1]**2*l[1]*numpy.cos(q[1]) + dq[1]**2*l[2]*numpy.cos(q[1] + q[2]) + 2*dq[1]*dq[2]*l[2]*numpy.cos(q[1] + q[2]) + dq[2]**2*l[2]*numpy.cos(q[1] + q[2]))], [-dq[2]*l[1]*l[2]*m[2]*(2*dq[1] + dq[2])*numpy.sin(q[2])], [dq[1]**2*l[1]*l[2]*m[2]*numpy.sin(q[2])]]).flatten()
+
+    def elastic_forces(self, q):
+        l, m, g, k, qr = self.params
+        return numpy.array([[1.0*k[0]*(q[0] - qr[0])], [1.0*k[1]*(q[1] - qr[1])], [1.0*k[2]*(q[2] - qr[2])]]).flatten()
         
     def _potential(self, q):
         l, m, g, k, qr = self.params
@@ -52,4 +56,12 @@ class XRR(PlanarDynamicalSystem):
         
     def jacobi_metric(self, q, E):
         l, m, g, k, qr = self.params
-        raise NotImplementedError
+        return numpy.array([[-1.0*(m[0] + m[1] + m[2])*(-2*E + 2*g*l[1]*m[1]*numpy.sin(q[1]) + 2*g*m[2]*(l[1]*numpy.sin(q[1]) + l[2]*numpy.sin(q[1] + q[2])) + 1.0*k[0]*(-q[0] + qr[0])**2 + 1.0*k[1]*(-q[1] + qr[1])**2 + 1.0*k[2]*(-q[2] + qr[2])**2), (1.0*l[1]*m[1]*numpy.sin(q[1]) + m[2]*(l[1]*numpy.sin(q[1]) + l[2]*numpy.sin(q[1] + q[2])))*(-2*E + 2*g*l[1]*m[1]*numpy.sin(q[1]) + 2*g*m[2]*(l[1]*numpy.sin(q[1]) + l[2]*numpy.sin(q[1] + q[2])) + 1.0*k[0]*(-q[0] + qr[0])**2 + 1.0*k[1]*(-q[1] + qr[1])**2 + 1.0*k[2]*(-q[2] + qr[2])**2), 1.0*l[2]*m[2]*(-2*E + 2*g*l[1]*m[1]*numpy.sin(q[1]) + 2*g*m[2]*(l[1]*numpy.sin(q[1]) + l[2]*numpy.sin(q[1] + q[2])) + 1.0*k[0]*(-q[0] + qr[0])**2 + 1.0*k[1]*(-q[1] + qr[1])**2 + 1.0*k[2]*(-q[2] + qr[2])**2)*numpy.sin(q[1] + q[2])], [(1.0*l[1]*m[1]*numpy.sin(q[1]) + m[2]*(l[1]*numpy.sin(q[1]) + l[2]*numpy.sin(q[1] + q[2])))*(-2*E + 2*g*l[1]*m[1]*numpy.sin(q[1]) + 2*g*m[2]*(l[1]*numpy.sin(q[1]) + l[2]*numpy.sin(q[1] + q[2])) + 1.0*k[0]*(-q[0] + qr[0])**2 + 1.0*k[1]*(-q[1] + qr[1])**2 + 1.0*k[2]*(-q[2] + qr[2])**2), -(l[1]**2*m[1] + m[2]*(l[1]**2 + 2*l[1]*l[2]*numpy.cos(q[2]) + l[2]**2))*(-2*E + 2*g*l[1]*m[1]*numpy.sin(q[1]) + 2*g*m[2]*(l[1]*numpy.sin(q[1]) + l[2]*numpy.sin(q[1] + q[2])) + 1.0*k[0]*(-q[0] + qr[0])**2 + 1.0*k[1]*(-q[1] + qr[1])**2 + 1.0*k[2]*(-q[2] + qr[2])**2), -1.0*l[2]*m[2]*(l[1]*numpy.cos(q[2]) + l[2])*(-2*E + 2*g*l[1]*m[1]*numpy.sin(q[1]) + 2*g*m[2]*(l[1]*numpy.sin(q[1]) + l[2]*numpy.sin(q[1] + q[2])) + 1.0*k[0]*(-q[0] + qr[0])**2 + 1.0*k[1]*(-q[1] + qr[1])**2 + 1.0*k[2]*(-q[2] + qr[2])**2)], [1.0*l[2]*m[2]*(-2*E + 2*g*l[1]*m[1]*numpy.sin(q[1]) + 2*g*m[2]*(l[1]*numpy.sin(q[1]) + l[2]*numpy.sin(q[1] + q[2])) + 1.0*k[0]*(-q[0] + qr[0])**2 + 1.0*k[1]*(-q[1] + qr[1])**2 + 1.0*k[2]*(-q[2] + qr[2])**2)*numpy.sin(q[1] + q[2]), -1.0*l[2]*m[2]*(l[1]*numpy.cos(q[2]) + l[2])*(-2*E + 2*g*l[1]*m[1]*numpy.sin(q[1]) + 2*g*m[2]*(l[1]*numpy.sin(q[1]) + l[2]*numpy.sin(q[1] + q[2])) + 1.0*k[0]*(-q[0] + qr[0])**2 + 1.0*k[1]*(-q[1] + qr[1])**2 + 1.0*k[2]*(-q[2] + qr[2])**2), -1.0*l[2]**2*m[2]*(-2*E + 2*g*l[1]*m[1]*numpy.sin(q[1]) + 2*g*m[2]*(l[1]*numpy.sin(q[1]) + l[2]*numpy.sin(q[1] + q[2])) + 1.0*k[0]*(-q[0] + qr[0])**2 + 1.0*k[1]*(-q[1] + qr[1])**2 + 1.0*k[2]*(-q[2] + qr[2])**2)]])
+
+    def coriolis_centrifugal_forces_dq(self, q, dq):
+        l, m, g, k, qr = self.params
+        return numpy.array([[0, 1.0*dq[1]**2*l[1]*m[1]*numpy.sin(q[1]) + 1.0*m[2]*(dq[1]**2*l[1]*numpy.sin(q[1]) + dq[1]**2*l[2]*numpy.sin(q[1] + q[2]) + 2*dq[1]*dq[2]*l[2]*numpy.sin(q[1] + q[2]) + dq[2]**2*l[2]*numpy.sin(q[1] + q[2])), 1.0*l[2]*m[2]*(dq[1]**2 + 2*dq[1]*dq[2] + dq[2]**2)*numpy.sin(q[1] + q[2])], [0, 0, -dq[2]*l[1]*l[2]*m[2]*(2*dq[1] + dq[2])*numpy.cos(q[2])], [0, 0, dq[1]**2*l[1]*l[2]*m[2]*numpy.cos(q[2])]])
+
+    def coriolis_centrifugal_forces_ddq(self, q, dq):
+        l, m, g, k, qr = self.params
+        return numpy.array([[0, -2.0*dq[1]*l[1]*m[1]*numpy.cos(q[1]) - 2.0*m[2]*(dq[1]*l[1]*numpy.cos(q[1]) + dq[1]*l[2]*numpy.cos(q[1] + q[2]) + dq[2]*l[2]*numpy.cos(q[1] + q[2])), -2.0*l[2]*m[2]*(dq[1] + dq[2])*numpy.cos(q[1] + q[2])], [0, -2*dq[2]*l[1]*l[2]*m[2]*numpy.sin(q[2]), 2*l[1]*l[2]*m[2]*(-dq[1] - dq[2])*numpy.sin(q[2])], [0, 2*dq[1]*l[1]*l[2]*m[2]*numpy.sin(q[2]), 0]])
